@@ -97,6 +97,7 @@ static struct dbs_tuners {
 	.freq_step = 5,
 };
 
+<<<<<<< HEAD
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 {
 	u64 idle_time;
@@ -119,6 +120,8 @@ static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
 	return jiffies_to_usecs(idle_time);
 }
 
+=======
+>>>>>>> bc7c794... cpufreq: Move get_cpu_idle_time() to cpufreq.c
 /* keep track of frequency transitions */
 static int
 dbs_cpufreq_notifier(struct notifier_block *nb, unsigned long val,
