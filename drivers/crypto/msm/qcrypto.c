@@ -733,8 +733,20 @@ static int _qcrypto_remove(struct platform_device *pdev)
 
 	cp = platform_get_drvdata(pdev);
 
+<<<<<<< HEAD
 	if (!cp)
 		return 0;
+=======
+	tasklet_kill(&pengine->done_tasklet);
+	cancel_work_sync(&pengine->bw_reaper_ws);
+	cancel_work_sync(&pengine->bw_allocate_ws);
+	del_timer_sync(&pengine->bw_reaper_timer);
+	device_init_wakeup(&pengine->pdev->dev, false);
+
+	if (pengine->bus_scale_handle != 0)
+		msm_bus_scale_unregister_client(pengine->bus_scale_handle);
+	pengine->bus_scale_handle = 0;
+>>>>>>> f0b5d79... crypto: msm: Add device wakeup initialization for qcrypto driver
 
 	if (cp->platform_support.bus_scale_table != NULL)
 		msm_bus_scale_unregister_client(cp->bus_scale_handle);
@@ -3646,6 +3658,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+<<<<<<< HEAD
 	INIT_LIST_HEAD(&cp->alg_list);
 	platform_set_drvdata(pdev, cp);
 	spin_lock_init(&cp->lock);
@@ -3654,6 +3667,39 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	cp->qce = handle;
 	cp->pdev = pdev;
 	qce_hw_support(cp->qce, &cp->ce_support);
+=======
+	platform_set_drvdata(pdev, pengine);
+	pengine->qce = handle;
+	pengine->pcp = cp;
+	pengine->pdev = pdev;
+	pengine->req = NULL;
+	pengine->signature = 0xdeadbeef;
+
+	init_timer(&(pengine->bw_reaper_timer));
+	INIT_WORK(&pengine->bw_reaper_ws, qcrypto_bw_reaper_work);
+	pengine->bw_reaper_timer.function =
+			qcrypto_bw_reaper_timer_callback;
+	INIT_WORK(&pengine->bw_allocate_ws, qcrypto_bw_allocate_work);
+	pengine->high_bw_req = false;
+	pengine->active_seq = 0;
+	pengine->last_active_seq = 0;
+	pengine->check_flag = false;
+	device_init_wakeup(&pengine->pdev->dev, true);
+
+	tasklet_init(&pengine->done_tasklet, req_done, (unsigned long)pengine);
+	crypto_init_queue(&pengine->req_queue, MSM_QCRYPTO_REQ_QUEUE_LENGTH);
+
+	mutex_lock(&cp->engine_lock);
+	cp->total_units++;
+	pengine->unit = cp->total_units;
+
+	spin_lock_irqsave(&cp->lock, flags);
+	list_add_tail(&pengine->elist, &cp->engine_list);
+	cp->next_engine = pengine;
+	spin_unlock_irqrestore(&cp->lock, flags);
+
+	qce_hw_support(pengine->qce, &cp->ce_support);
+>>>>>>> f0b5d79... crypto: msm: Add device wakeup initialization for qcrypto driver
 	if (cp->ce_support.bam)	 {
 		cp->platform_support.ce_shared = cp->ce_support.is_shared;
 		cp->platform_support.shared_ce_resource = 0;
