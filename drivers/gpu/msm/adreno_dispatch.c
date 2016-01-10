@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+=======
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+>>>>>>> 2e35aca... msm: kgsl: Wake up snoozing threads on marker expiry
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -122,6 +126,27 @@ static int fault_detect_read_compare(struct kgsl_device *device)
 		ret = 1;
 
 	fault_detect_ts = ts;
+
+	return ret;
+}
+
+static int _check_context_queue(struct adreno_context *drawctxt)
+{
+	int ret;
+
+	spin_lock(&drawctxt->lock);
+
+	/*
+	 * Wake up if there is room in the context or if the whole thing got
+	 * invalidated while we were asleep
+	 */
+
+	if (drawctxt->state == ADRENO_CONTEXT_STATE_INVALID)
+		ret = 1;
+	else
+		ret = drawctxt->queued < _context_cmdqueue_size ? 1 : 0;
+
+	spin_unlock(&drawctxt->lock);
 
 	return ret;
 }
@@ -391,13 +416,17 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 	}
 
 	/*
-	 * If the context successfully submitted commands there will be room
-	 * in the context queue so wake up any snoozing threads that want to
-	 * submit commands
+	 * Wake up any snoozing threads if we have consumed any real commands
+	 * or marker commands and we have room in the context queue.
 	 */
 
+<<<<<<< HEAD
 	if (count)
 		wake_up_interruptible_all(&drawctxt->wq);
+=======
+	if (_check_context_queue(drawctxt))
+		wake_up_all(&drawctxt->wq);
+>>>>>>> 2e35aca... msm: kgsl: Wake up snoozing threads on marker expiry
 
 	/*
 	 * Return positive if the context submitted commands or if we figured
@@ -519,6 +548,7 @@ int adreno_dispatcher_issuecmds(struct adreno_device *adreno_dev)
 	return ret;
 }
 
+<<<<<<< HEAD
 static int _check_context_queue(struct adreno_context *drawctxt)
 {
 	int ret;
@@ -540,6 +570,8 @@ static int _check_context_queue(struct adreno_context *drawctxt)
 	return ret;
 }
 
+=======
+>>>>>>> 2e35aca... msm: kgsl: Wake up snoozing threads on marker expiry
 /**
  * get_timestamp() - Return the next timestamp for the context
  * @drawctxt - Pointer to an adreno draw context struct
