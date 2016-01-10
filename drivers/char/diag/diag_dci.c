@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+=======
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+>>>>>>> c412b73... diag: dci: Send mode reset command to the apps processor
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -559,6 +563,7 @@ static int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 		mutex_unlock(&driver->dci_mutex);
 		return -EIO;
 	}
+<<<<<<< HEAD
 
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 		struct diag_smd_info *smd_info = driver->separate_cmdrsp[i] ?
@@ -569,6 +574,276 @@ static int diag_send_dci_pkt(struct diag_master_table entry, unsigned char *buf,
 				smd_write(smd_info->ch,
 					driver->apps_dci_buf, len + 10);
 				status = DIAG_DCI_NO_ERROR;
+=======
+	/* This command is registered locally on the Apps */
+	if (entry.client_id == APPS_DATA) {
+		driver->dci_pkt_length = len + 10;
+		diag_update_pkt_buffer(driver->apps_dci_buf, DCI_PKT_TYPE);
+		diag_update_sleeping_process(entry.process_id, DCI_PKT_TYPE);
+		mutex_unlock(&driver->dci_mutex);
+		return DIAG_DCI_NO_ERROR;
+	}
+
+	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
+		if (entry.client_id == i) {
+			status = 1;
+			break;
+		}
+
+	if (status) {
+		status = diag_dci_write_proc(entry.client_id,
+					     DIAG_DATA_TYPE,
+					     driver->apps_dci_buf,
+					     len + 10);
+	} else {
+		pr_err("diag: Cannot send packet to peripheral %d",
+		       entry.client_id);
+		status = DIAG_DCI_SEND_DATA_FAIL;
+	}
+	mutex_unlock(&driver->dci_mutex);
+	return status;
+}
+
+static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
+				     unsigned char *req_buf, int tag)
+{
+	uint8_t cmd_code, subsys_id, i, goto_download = 0;
+	uint8_t header_len = sizeof(struct diag_dci_pkt_header_t);
+	uint16_t ss_cmd_code;
+	uint32_t write_len = 0;
+	unsigned char *dest_buf = driver->apps_dci_buf;
+	unsigned char *payload_ptr = driver->apps_dci_buf + header_len;
+	struct diag_dci_pkt_header_t dci_header;
+
+	if (!pkt_header || !req_buf || tag < 0)
+		return -EIO;
+
+	cmd_code = pkt_header->cmd_code;
+	subsys_id = pkt_header->subsys_id;
+	ss_cmd_code = pkt_header->subsys_cmd_code;
+
+	if (cmd_code == DIAG_CMD_DOWNLOAD) {
+		*payload_ptr = DIAG_CMD_DOWNLOAD;
+		write_len = sizeof(uint8_t);
+		goto_download = 1;
+		goto fill_buffer;
+	} else if (cmd_code == DIAG_CMD_VERSION) {
+		if (chk_polling_response()) {
+			for (i = 0; i < 55; i++, write_len++, payload_ptr++)
+				*(payload_ptr) = 0;
+			goto fill_buffer;
+		}
+	} else if (cmd_code == DIAG_CMD_EXT_BUILD) {
+		if (chk_polling_response()) {
+			*payload_ptr = DIAG_CMD_EXT_BUILD;
+			write_len = sizeof(uint8_t);
+			payload_ptr += sizeof(uint8_t);
+			for (i = 0; i < 8; i++, write_len++, payload_ptr++)
+				*(payload_ptr) = 0;
+			*(int *)(payload_ptr) = chk_config_get_id();
+			write_len += sizeof(int);
+			goto fill_buffer;
+		}
+	} else if (cmd_code == DIAG_CMD_LOG_ON_DMND) {
+		if (driver->log_on_demand_support) {
+			*payload_ptr = DIAG_CMD_LOG_ON_DMND;
+			write_len = sizeof(uint8_t);
+			payload_ptr += sizeof(uint8_t);
+			*(uint16_t *)(payload_ptr) = *(uint16_t *)(req_buf + 1);
+			write_len += sizeof(uint16_t);
+			payload_ptr += sizeof(uint16_t);
+			*payload_ptr = 0x1; /* Unknown */
+			write_len += sizeof(uint8_t);
+			goto fill_buffer;
+		}
+	} else if (cmd_code != DIAG_CMD_DIAG_SUBSYS) {
+		return DIAG_DCI_TABLE_ERR;
+	}
+
+	if (subsys_id == DIAG_SS_DIAG) {
+		if (ss_cmd_code == DIAG_DIAG_MAX_PKT_SZ) {
+			memcpy(payload_ptr, pkt_header,
+					sizeof(struct diag_pkt_header_t));
+			write_len = sizeof(struct diag_pkt_header_t);
+			*(uint32_t *)(payload_ptr + write_len) = PKT_SIZE;
+			write_len += sizeof(uint32_t);
+		} else if (ss_cmd_code == DIAG_DIAG_STM) {
+			write_len = diag_process_stm_cmd(req_buf, payload_ptr);
+		}
+	} else if (subsys_id == DIAG_SS_PARAMS) {
+		if (ss_cmd_code == DIAG_DIAG_POLL) {
+			if (chk_polling_response()) {
+				memcpy(payload_ptr, pkt_header,
+					sizeof(struct diag_pkt_header_t));
+				write_len = sizeof(struct diag_pkt_header_t);
+				payload_ptr += write_len;
+				for (i = 0; i < 12; i++, write_len++) {
+					*(payload_ptr) = 0;
+					payload_ptr++;
+				}
+			}
+		} else if (ss_cmd_code == DIAG_DEL_RSP_WRAP) {
+			memcpy(payload_ptr, pkt_header,
+					sizeof(struct diag_pkt_header_t));
+			write_len = sizeof(struct diag_pkt_header_t);
+			*(int *)(payload_ptr + write_len) = wrap_enabled;
+			write_len += sizeof(int);
+		} else if (ss_cmd_code == DIAG_DEL_RSP_WRAP_CNT) {
+			wrap_enabled = true;
+			memcpy(payload_ptr, pkt_header,
+					sizeof(struct diag_pkt_header_t));
+			write_len = sizeof(struct diag_pkt_header_t);
+			*(uint16_t *)(payload_ptr + write_len) = wrap_count;
+			write_len += sizeof(uint16_t);
+		}
+	}
+
+fill_buffer:
+	if (write_len > 0) {
+		/* Check if we are within the range of the buffer*/
+		if (write_len + header_len > PKT_SIZE) {
+			pr_err("diag: In %s, invalid length %d\n", __func__,
+						write_len + header_len);
+			return -ENOMEM;
+		}
+		dci_header.start = CONTROL_CHAR;
+		dci_header.version = 1;
+		/*
+		 * Length of the rsp pkt = actual data len + pkt rsp code
+		 * (uint8_t) + tag (int)
+		 */
+		dci_header.len = write_len + sizeof(uint8_t) + sizeof(int);
+		dci_header.pkt_code = DCI_PKT_RSP_CODE;
+		dci_header.tag = tag;
+		driver->in_busy_dcipktdata = 1;
+		memcpy(dest_buf, &dci_header, header_len);
+		diag_process_apps_dci_read_data(DCI_PKT_TYPE, dest_buf + 4,
+						dci_header.len);
+		driver->in_busy_dcipktdata = 0;
+
+		if (goto_download) {
+			/*
+			 * Sleep for sometime so that the response reaches the
+			 * client. The value 5000 empirically as an optimum
+			 * time for the response to reach the client.
+			 */
+			usleep_range(5000, 5100);
+			/* call download API */
+			msm_set_restart_mode(RESTART_DLOAD);
+			pr_alert("diag: download mode set, Rebooting SoC..\n");
+			kernel_restart(NULL);
+		}
+		return DIAG_DCI_NO_ERROR;
+	}
+
+	return DIAG_DCI_TABLE_ERR;
+}
+
+static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
+{
+	int req_uid, ret = DIAG_DCI_TABLE_ERR, i;
+	struct diag_pkt_header_t *header = NULL;
+	unsigned char *temp = buf;
+	unsigned char *req_buf = NULL;
+	uint8_t retry_count = 0, max_retries = 3, found = 0;
+	uint32_t read_len = 0;
+	struct diag_master_table entry;
+	struct dci_pkt_req_entry_t *req_entry = NULL;
+
+	if (!buf)
+		return -EIO;
+
+	if (len < DCI_PKT_REQ_MIN_LEN || len > USER_SPACE_DATA) {
+		pr_err("diag: dci: Invalid length %d len in %s", len, __func__);
+		return -EIO;
+	}
+
+	req_uid = *(int *)temp; /* UID of the request */
+	temp += sizeof(int);
+	req_buf = temp; /* Start of the Request */
+	header = (struct diag_pkt_header_t *)temp;
+	temp += sizeof(struct diag_pkt_header_t);
+	read_len = sizeof(int) + sizeof(struct diag_pkt_header_t);
+	if (read_len >= USER_SPACE_DATA) {
+		pr_err("diag: dci: Invalid length in %s\n", __func__);
+		return -EIO;
+	}
+
+	/* Check if the command is allowed on DCI */
+	if (diag_dci_filter_commands(header)) {
+		pr_debug("diag: command not supported %d %d %d",
+			 header->cmd_code, header->subsys_id,
+			 header->subsys_cmd_code);
+		return DIAG_DCI_SEND_DATA_FAIL;
+	}
+
+	/*
+	 * Previous packet is yet to be consumed by the client. Wait
+	 * till the buffer is free.
+	 */
+	while (retry_count < max_retries) {
+		retry_count++;
+		if (driver->in_busy_dcipktdata)
+			usleep_range(10000, 10100);
+		else
+			break;
+	}
+	/* The buffer is still busy */
+	if (driver->in_busy_dcipktdata) {
+		pr_err("diag: In %s, apps dci buffer is still busy. Dropping packet\n",
+								__func__);
+		return -EAGAIN;
+	}
+
+	/* Register this new DCI packet */
+	req_entry = diag_register_dci_transaction(req_uid);
+	if (!req_entry) {
+		pr_alert("diag: registering new DCI transaction failed\n");
+		return DIAG_DCI_NO_REG;
+	}
+
+	/* Check if it is a dedicated Apps command */
+	ret = diag_dci_process_apps_pkt(header, req_buf, req_entry->tag);
+	if (ret == DIAG_DCI_NO_ERROR || ret < 0)
+		return ret;
+
+	/* Check the registration table for command entries */
+	for (i = 0; i < diag_max_reg && !found; i++) {
+		entry = driver->table[i];
+		if (entry.process_id == NO_PROCESS)
+			continue;
+		if (entry.cmd_code == header->cmd_code &&
+			    entry.subsys_id == header->subsys_id &&
+			    entry.cmd_code_lo <= header->subsys_cmd_code &&
+			    entry.cmd_code_hi >= header->subsys_cmd_code) {
+			ret = diag_send_dci_pkt(entry, buf, len,
+						req_entry->tag);
+			found = 1;
+		} else if (entry.cmd_code == 255 && header->cmd_code == 75) {
+			if (entry.subsys_id == header->subsys_id &&
+			    entry.cmd_code_lo <= header->subsys_cmd_code &&
+			    entry.cmd_code_hi >= header->subsys_cmd_code) {
+				ret = diag_send_dci_pkt(entry, buf, len,
+							req_entry->tag);
+				found = 1;
+			}
+		} else if (entry.cmd_code == 255 && entry.subsys_id == 255) {
+			if (entry.cmd_code_lo <= header->cmd_code &&
+			    entry.cmd_code_hi >= header->cmd_code) {
+				/*
+				 * If its a Mode reset command, make sure it is
+				 * registered on the Apps Processor
+				 */
+				if (entry.cmd_code_lo == MODE_CMD &&
+				    entry.cmd_code_hi == MODE_CMD &&
+					header->subsys_id == RESET_ID) {
+					if (entry.client_id != APPS_DATA)
+						continue;
+				}
+					ret = diag_send_dci_pkt(entry, buf, len,
+								req_entry->tag);
+					found = 1;
+>>>>>>> c412b73... diag: dci: Send mode reset command to the apps processor
 			}
 			break;
 		}
