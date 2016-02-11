@@ -1,7 +1,7 @@
 VERSION = 3
 PATCHLEVEL = 4
 SUBLEVEL = 67
-EXTRAVERSION = --L.E.K.-msm8x26
+EXTRAVERSION = -Tasty Kernel-msm8226
 NAME = Saber-toothed Squirrel
 
 # *DOCUMENTATION*
