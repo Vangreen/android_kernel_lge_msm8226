@@ -1,3 +1,4 @@
+
 menuconfig PM_DEVFREQ
 	bool "Generic Dynamic Voltage and Frequency Scaling (DVFS) support"
 	help
@@ -98,15 +99,6 @@ config DEVFREQ_GOV_CONSERVATIVE
 	  similar as conservative governor of cpufreq does and implements
 	  the useful optimizations from Adreno TZ.
 
-<<<<<<< HEAD
-config SIMPLE_GPU_ALGORITHM
-	bool "Simple GPU algorithm"
-	depends on DEVFREQ_GOV_MSM_ADRENO_TZ
-	help
-	  Simple user configurable GPU controlling algorithm
-
-=======
->>>>>>> f410e91... Add GPU conservative governor
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS4_BUS_DEVFREQ
