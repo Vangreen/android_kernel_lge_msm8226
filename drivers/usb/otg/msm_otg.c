@@ -49,14 +49,12 @@
 #include <mach/msm_bus.h>
 #include <mach/rpm-regulator.h>
 
-<<<<<<< HEAD
+
 /* LGE_CHANGE_S: Cable Detection */
-=======
 #ifdef CONFIG_FORCE_FAST_CHARGE
 #include <linux/fastchg.h>
 #endif
 
->>>>>>> bc46956... Add USB forced fast charge v2 support
 #ifdef  CONFIG_LGE_PM
 #include    <mach/board_lge.h>
 #include    <linux/power_supply.h>

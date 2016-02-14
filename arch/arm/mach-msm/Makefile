@@ -441,9 +441,9 @@ obj-$(CONFIG_WALL_CLK) += wallclk.o
 obj-$(CONFIG_WALL_CLK_SYSFS) += wallclk_sysfs.o
 obj-$(CONFIG_ARCH_RANDOM) += early_random.o
 obj-$(CONFIG_PERFMAP) += perfmap.o
-<<<<<<< HEAD
+
 obj-$(CONFIG_ARCH_MSM8974) += cpubw-krait.o
-=======
+
 
 obj-$(CONFIG_FORCE_FAST_CHARGE) += fastchg.o
->>>>>>> bc46956... Add USB forced fast charge v2 support
+
