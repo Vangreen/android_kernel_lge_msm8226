@@ -195,7 +195,7 @@ export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		:= arm
 SUBARCH	:= arm
 ARCH		?= $(SUBARCH)
-CROSS_COMPILE	?= /home/vangreen/Warsztat/arm-eabi-4.8/bin/arm-eabi-
+CROSS_COMPILE	?= /home/vangreen/Warsztat/arm-cortex_a7-linux-gnueabihf-linaro_4.9-master/bin/arm-cortex_a7-linux-gnueabihf-
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
