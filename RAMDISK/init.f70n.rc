@@ -1,0 +1,231 @@
+import /init.zetaw.rc
+import /init.f70n.usb.rc
+import /init.f70n_product.rc
+
+on early-init
+    mkdir /firmware 0771 system system
+    symlink /data/tombstones /tombstones
+
+on init
+
+# Begin Immersion changes
+    export VIBE_PIPE_PATH /dev/pipes
+    mkdir /dev/pipes 0771 shell shell
+# End Immersion changes
+
+# LGE_UPDATE_START, 2013/10/1, for eri partition of VZW based operators, p1-fs@lge.com
+#    wait /dev/block/platform/msm_sdcc.1/by-name/eri
+#    exec /sbin/setup_fs_static /dev/block/platform/msm_sdcc.1/by-name/eri no_reboot
+# LGE_UPDATE_END, 2013/10/1, for eri partition of VZW based operators, p1-fs@lge.com
+
+on fs
+    mount_all fstab.f70n
+
+    # Executing tune2fs to reserve some region in /data. (40MB)
+    exec /system/bin/tune2fs -u system -r 10240 /dev/block/platform/msm_sdcc.1/by-name/userdata
+
+
+    # Keeping following partitions outside fstab file. As user may not have
+    # these partition flashed on the device. Failure to mount any partition in fstab file
+    # results in failure to launch late-start class.
+
+    wait /dev/block/platform/msm_sdcc.1/by-name/modem
+    mount vfat /dev/block/platform/msm_sdcc.1/by-name/modem /firmware ro shortname=lower,uid=1000,gid=1000,dmask=227,fmask=337
+
+	write /sys/kernel/boot_adsp/boot 1
+
+# In order to keep plenty of large order chunks.
+    write /proc/sys/vm/min_free_kbytes 5120
+
+# import cne init file
+#on post-fs
+#ys.seong@lge.com 2013.06.30 diganostic mode for recovey
+#     write /sys/class/android_usb/android0/enable 0
+#	     restart adbd
+#		     write /sys/class/android_usb/android0/enable 1
+
+#    export LD_PRELOAD /vendor/lib/libNimsWrap.so
+
+on post-fs-data
+    mkdir /data/tombstones 0771 system system
+    mkdir /tombstones/modem 0771 system system
+
+
+# SD ENC
+    setprop ro.ssbd.session /dev/block/platform/msm_sdcc.1/by-name/eksst
+    setprop ro.ssbd.offset 0
+
+on early-boot
+
+on boot
+#insmod exfat filesystem module by WX-BSP-FileSys@lge.com
+    start imsqmidaemon
+    insmod /system/lib/modules/adsprpc.ko
+
+#start camera server as daemon
+service qcamerasvr /system/bin/mm-qcamera-daemon
+    class late_start
+    user camera
+    group camera system inet input graphics
+#LGE_CHANGE_S, restart qcamerasvr when restarting mediaserver and servicemanager, yousung.kang@lge.com
+on property:init.svc.media=restarting
+    restart qcamerasvr
+on property:init.svc.servicemanager=restarting
+    restart qcamerasvr
+#LGE_CHANGE_E, restart qcamerasvr when restarting mediaserver and servicemanager, yousung.kang@lge.com
+
+# Allow usb charging to be disabled persistently
+on property:persist.usb.chgdisabled=1
+   write /sys/class/power_supply/battery/charging_enabled 0
+
+on property:persist.usb.chgdisabled=0
+   write /sys/class/power_supply/battery/charging_enabled 1
+
+# Allow usb charging to be disabled persistently
+on property:persist.usb.chgdisabled=1
+   write /sys/class/power_supply/battery/charging_enabled 0
+
+on property:persist.usb.chgdisabled=0
+   write /sys/class/power_supply/battery/charging_enabled 1
+
+on property:persist.service.fakebatt=1
+    write /sys/class/power_supply/battery/pseudo_batt "1 1 100 40 4100 80 1"
+
+on property:persist.service.fakebatt=0
+    write /sys/class/power_supply/battery/pseudo_batt "0 1 100 40 4100 80 1"
+
+service time_daemon /system/bin/time_daemon
+   class late_start
+   user root
+   group root
+
+service mpdecision /system/bin/mpdecision --no_sleep --avg_comp
+   user root
+   disabled
+
+#start GNSS/Sensor interface daemon
+# disable gsiff daemon
+# service gsiff_daemon /system/bin/gsiff_daemon
+#   class late_start
+#   user system
+#   group gps net_raw
+
+service thermal-engine /system/bin/thermal-engine
+   class main
+   user root
+   group root
+
+# Begin Immersion changes
+service immvibed /system/bin/immvibed
+    class main
+    user shell
+    group shell system
+    oneshot
+# End Immersion changes
+
+service qrngd /system/bin/qrngd -f
+   class main
+   user root
+   group root
+
+service qrngp /system/bin/qrngp
+    class main
+    user root
+    group root
+    oneshot
+    disabled
+
+on property:sys.boot_completed=1
+    start qrngp
+
+service audiod /system/bin/audiod
+   class late_start
+   user system
+   group system
+
+on boot
+    start imsqmidaemon
+    insmod /system/lib/modules/adsprpc.ko
+    chown system system /sys/class/power_supply/battery/pseudo_batt
+service adsprpcd /system/bin/adsprpcd
+   class main
+   user media
+   group media
+
+service rctd /system/bin/rctd
+   class late_start
+   user root
+   group root
+service imsqmidaemon /system/bin/imsqmidaemon
+    class main
+    user system
+    group radio net_raw log qcom_diag
+    disabled
+
+# imsdatadaemon starts with root and UID will be downgraded to SYSTEM.
+service imsdatadaemon /system/bin/imsdatadaemon
+    class main
+    user root
+    group radio net_raw log qcom_diag net_admin
+    disabled
+
+on property:sys.ims.QMI_DAEMON_STATUS=1
+    start imsdatadaemon
+
+service ims_rtp_daemon /system/bin/ims_rtp_daemon
+   class main
+   user system
+   group radio net_raw diag qcom_diag log
+   disabled
+
+on property:sys.ims.DATA_DAEMON_STATUS=1
+    start ims_rtp_daemon
+
+service wcnss-service /system/bin/wcnss_service
+   class late_start
+   user root
+   group system wifi
+   oneshot
+
+service ppd /system/bin/mm-pp-daemon
+    class late_start
+    user system
+    socket pps stream 0660 system system graphics
+    group system graphics
+
+on property:init.svc.surfaceflinger=stopped
+    stop ppd
+
+#LGE_UPDATE_S LGE_PM_SMPL_COUNT
+service smpl_count /system/bin/smpl_count
+    class main
+	user root
+	oneshot
+#LGE_UPDATE_E LGE_PM_SMPL_COUNT
+
+#Customize booting resources
+service runtime_boot_res /system/vendor/bin/runtime_boot_res.sh
+    disabled
+    oneshot
+
+on property:ro.build.sbp=1
+    start runtime_boot_res
+
+# LGBACKUP SystemService Daemon
+service bnrd /system/bin/bnrd
+   class main
+   socket bnrd stream 660 root system
+   user root
+   group system radio sdcard_rw
+# Support diag_mdlog [START]
+service diag_mdlog /system/bin/diag_mdlog
+    class late_start
+    disabled
+    oneshot
+
+on property:persist.service.mdlog.enable=1
+    start diag_mdlog
+
+on property:persist.service.mdlog.enable=0
+    stop diag_mdlog
+# Support diag_mdlog [END]

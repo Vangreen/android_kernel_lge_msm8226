@@ -1,0 +1,9 @@
+#
+# ADDITIONAL_DEFAULT_PROPERTIES
+#
+ro.secure=1
+ro.allow.mock.location=0
+ro.debuggable=0
+persist.sys.usb.config=boot
+persist.sys.strict_op_enable=false
+ro.adb.secure=1
