@@ -731,12 +731,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		}
 		entry->app_id = app_id;
 		entry->ref_cnt = 1;
-<<<<<<< HEAD
 
-=======
-		memcpy(entry->app_name, load_img_req.img_name,
-					MAX_APP_NAME_SIZE);
->>>>>>> 71d4cfb... qseecom: Save appname in qseecom when loading app by kernel client
 		/* Deallocate the handle */
 		if (!IS_ERR_OR_NULL(ihandle))
 			ion_free(qseecom.ion_clnt, ihandle);
@@ -750,11 +745,6 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		(char *)(load_img_req.img_name));
 	}
 	data->client.app_id = app_id;
-<<<<<<< HEAD
-=======
-	memcpy(data->client.app_name, load_img_req.img_name,
-					MAX_APP_NAME_SIZE);
->>>>>>> 71d4cfb... qseecom: Save appname in qseecom when loading app by kernel client
 	load_img_req.app_id = app_id;
 	if (copy_to_user(argp, &load_img_req, sizeof(load_img_req))) {
 		pr_err("copy_to_user failed\n");
@@ -1048,33 +1038,11 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	}
 
 	reqd_len_sb_in = req->cmd_req_len + req->resp_len;
-<<<<<<< HEAD
 	if (reqd_len_sb_in > data->client.sb_length) {
 		pr_debug("Not enough memory to fit cmd_buf and "
 			"resp_buf. Required: %u, Available: %u\n",
 				reqd_len_sb_in, data->client.sb_length);
 		return -ENOMEM;
-=======
-	/* find app_id & img_name from list */
-	spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
-	list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
-							list) {
-		name_len = min(strlen(data->client.app_name),
-				strlen(ptr_app->app_name));
-		if ((ptr_app->app_id == data->client.app_id) &&
-			 (!memcmp(ptr_app->app_name,
-				data->client.app_name, name_len))) {
-			found_app = true;
-			break;
-		}
-	}
-	spin_unlock_irqrestore(&qseecom.registered_app_list_lock, flags);
-
-	if (!found_app) {
-		pr_err("app_id %d (%s) is not found\n", data->client.app_id,
-			(char *)data->client.app_name);
-		return -EINVAL;
->>>>>>> 71d4cfb... qseecom: Save appname in qseecom when loading app by kernel client
 	}
 
 	send_data_req.qsee_cmd_id = QSEOS_CLIENT_SEND_DATA_COMMAND;
@@ -1662,11 +1630,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	uint32_t len;
 	ion_phys_addr_t pa;
 
-	if (!app_name || strlen(app_name) >= MAX_APP_NAME_SIZE) {
-		pr_err("The app_name (%s) is not valid\n", app_name);
-		return -EINVAL;
-	}
-
 	*handle = kzalloc(sizeof(struct qseecom_handle), GFP_KERNEL);
 	if (!(*handle)) {
 		pr_err("failed to allocate memory for kernel client handle\n");
@@ -1747,7 +1710,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		if (ret < 0)
 			goto err;
 		data->client.app_id = ret;
-		memcpy(data->client.app_name, app_name, MAX_APP_NAME_SIZE);
 	}
 	if (!found_app) {
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
@@ -1758,7 +1720,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		}
 		entry->app_id = ret;
 		entry->ref_cnt = 1;
-		memcpy(entry->app_name, app_name, MAX_APP_NAME_SIZE);
 
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_add_tail(&entry->list, &qseecom.registered_app_list_head);
@@ -1816,9 +1777,6 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 		return -EINVAL;
 	}
 	data =	(struct qseecom_dev_handle *) ((*handle)->dev);
-	mutex_lock(&app_access_lock);
-	atomic_inc(&data->ioctl_count);
-
 	spin_lock_irqsave(&qseecom.registered_kclient_list_lock, flags);
 	list_for_each_entry(kclient, &qseecom.registered_kclient_list_head,
 				list) {
@@ -1832,43 +1790,17 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 	if (!found_handle)
 		pr_err("Unable to find the handle, exiting\n");
 	else
-<<<<<<< HEAD
 		ret = qseecom_unload_app(data);
 	if (data->fast_load_enabled == true)
 		qsee_disable_clock_vote(data, CLK_SFPB);
 	if (data->perf_enabled == true)
 		qsee_disable_clock_vote(data, CLK_DFAB);
-=======
-		ret = qseecom_unload_app(data, false);
-
-	if (qseecom.support_bus_scaling) {
-		mutex_lock(&qsee_bw_mutex);
-		if (data->mode != INACTIVE) {
-			qseecom_unregister_bus_bandwidth_needs(data);
-			if (qseecom.cumulative_mode == INACTIVE) {
-				ret = __qseecom_set_msm_bus_request(INACTIVE);
-				if (ret)
-					pr_err("Fail to scale down bus\n");
-			}
-		}
-		mutex_unlock(&qsee_bw_mutex);
-	} else {
-		if (data->fast_load_enabled == true)
-			qsee_disable_clock_vote(data, CLK_SFPB);
-		if (data->perf_enabled == true)
-			qsee_disable_clock_vote(data, CLK_DFAB);
-	}
-
-	atomic_dec(&data->ioctl_count);
-	mutex_unlock(&app_access_lock);
->>>>>>> 71d4cfb... qseecom: Save appname in qseecom when loading app by kernel client
 	if (ret == 0) {
 		kzfree(data);
 		kzfree(*handle);
 		kzfree(kclient);
 		*handle = NULL;
 	}
-
 	return ret;
 }
 EXPORT_SYMBOL(qseecom_shutdown_app);
@@ -2429,12 +2361,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 				&qseecom.registered_app_list_lock, flags);
 		data->client.app_id = ret;
 		query_req.app_id = ret;
-<<<<<<< HEAD
 
-=======
-		memcpy(data->client.app_name, query_req.app_name,
-				MAX_APP_NAME_SIZE);
->>>>>>> 71d4cfb... qseecom: Save appname in qseecom when loading app by kernel client
 		if (copy_to_user(argp, &query_req, sizeof(query_req))) {
 			pr_err("copy_to_user failed\n");
 			return -EFAULT;
