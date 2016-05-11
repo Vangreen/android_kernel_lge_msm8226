@@ -227,8 +227,6 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	}
 
 	nlines = pipe->bwc_mode ? 1 : 2;
-	
-	force_alloc = pipe->flags & MDP_SMP_FORCE_ALLOC;
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (j = (MAX_PLANES - 1); j >= ps.num_planes; j--) {
