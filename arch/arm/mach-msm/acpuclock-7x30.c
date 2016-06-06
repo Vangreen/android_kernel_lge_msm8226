@@ -86,10 +86,15 @@ static struct clock_state drv_state = { 0 };
 static struct clkctl_acpu_speed *backup_s;
 
 static struct pll pll2_tbl[] = {
-	{  42, 0, 1, 0 }, /*  806 MHz */
-	{  53, 1, 3, 0 }, /* 1024 MHz */
-	{ 125, 0, 1, 1 }, /* 1200 MHz */
-	{  73, 0, 1, 0 }, /* 1401 MHz */
+    {42, 0, 1, 0 },     /*  806 MHz */
+    {53, 1, 3, 0 },     /* 1024 MHz */
+    {58, 1, 3, 0 },     /* 1113 MHz */
+/*  {125,0, 1, 1 },     /  1200 MHz */
+    {63, 1, 3, 0 },     /* 1209 MHz */
+    {68, 1, 3, 0 },     /* 1305 MHz */
+    {73, 0, 1, 0 },     /* 1401 MHz */
+    {78, 1, 3, 0 },     /* 1516 MHz */
+    {83, 1, 3, 0 },     /* 1612 MHz */
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
